@@ -1,9 +1,18 @@
 import type { Metadata, Viewport } from "next";
+import { Poppins } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 
+// TodoTrail's brand typeface, used app-wide for both headings and body text.
+const poppins = Poppins({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  variable: "--font-poppins",
+  display: "swap",
+});
+
 export const metadata: Metadata = {
-  title: "OpenReply - Open source Instagram comment-to-DM automation",
+  title: "RespondeTuti - Open source Instagram comment-to-DM automation",
   description:
     "A free, self-hosted ManyChat alternative. Send an Instagram DM automatically when someone comments a keyword on your post or reel, using the official Meta API.",
   keywords: [
@@ -16,7 +25,7 @@ export const metadata: Metadata = {
   manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,
-    title: "OpenReply",
+    title: "RespondeTuti",
     statusBarStyle: "black-translucent",
   },
   icons: {
@@ -43,7 +52,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="h-full dark">
+    <html lang="en" className={`h-full dark ${poppins.variable}`}>
       <body
         className="min-h-full bg-background text-foreground font-sans antialiased"
         // Clears the home indicator when installed; 0 everywhere else.

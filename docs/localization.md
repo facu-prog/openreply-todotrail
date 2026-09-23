@@ -1,9 +1,10 @@
 # Interface languages
 
-OpenReply defaults to English. Choose **English** or **繁體中文** in the dashboard
-sidebar, under **Settings → Interface language**, or on the sign-in screen.
-The choice is stored in a browser cookie for one year and applies to the
-dashboard, sign-in screens, workspace invitations, and shared campaign reports.
+OpenReply defaults to English. Choose **English**, **繁體中文**, or **Español**
+in the dashboard sidebar, under **Settings → Interface language**, or on the
+sign-in screen. The choice is stored in a browser cookie for one year and
+applies to the dashboard, sign-in screens, workspace invitations, and shared
+campaign reports.
 
 Changing the interface language does not translate campaign names, keywords,
 outgoing messages, button text, imported CSV data, or Instagram content. An
@@ -16,8 +17,9 @@ interface translation's scope.
 
 ## Adding or changing copy
 
-- `lib/i18n/zh-TW.json` maps English source copy to Traditional Chinese. Use
-  complete sentences with named placeholders when word order can vary.
+- `lib/i18n/zh-TW.json` maps English source copy to Traditional Chinese, and
+  `lib/i18n/es.json` maps the same keys to Argentine Spanish. Use complete
+  sentences with named placeholders when word order can vary.
 - Client components use `useI18n()`; server components use `await getI18n()`.
   `t("Hello, {name}!", { name })` checks both the message key and required
   placeholders at compile time. Never pass user content as a translation key.

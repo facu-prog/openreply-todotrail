@@ -4,20 +4,27 @@
    Plain and functional. No gradients, glass, glow, or animation. */
 
 @theme inline {
+  /* TodoTrail brand tokens (todotrail.com.ar): orange primary accent, green
+     secondary accent used sparingly for success/positive states. */
   --color-background: #ffffff;
-  --color-foreground: #18181b;
+  --color-foreground: #0e0e0e;
   --color-surface: #f7f7f8;
   --color-surface-hover: #efeff1;
   --color-border: #e4e4e7;
   --color-border-hover: #d4d4d8;
   --color-muted: #71717a;
-  --color-accent: #f97316;
-  --color-accent-hover: #ea580c;
-  --color-success: #16a34a;
+  --color-accent: #ff8627;
+  --color-accent-hover: #e6741c;
+  --color-success: #66b051;
   --color-error: #dc2626;
   --color-warning: #d97706;
-  --font-sans: system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-sans: var(--font-poppins), "Poppins", system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-mono: ui-monospace, monospace;
+  /* TodoTrail uses a small, sharp radius rather than pill/rounded-pill shapes. */
+  --radius-md: 4px;
+  --radius-lg: 4px;
+  --radius-xl: 4px;
+  --radius-2xl: 4px;
 }
 
 html {
@@ -89,20 +96,3 @@ select:focus-visible {
   }
 }
 
-@theme inline {
-  --color-zernio-coral: #EB3514;
-  --color-zernio-cream: #F0EFEB;
-  --color-zernio-border: #D9D8D3;
-  --color-zernio-charcoal: #2D2D2D;
-}
-.zernio-sponsor { background: var(--color-zernio-cream); color: var(--color-zernio-charcoal); border-color: var(--color-zernio-border); }
-.zernio-action { background: var(--color-zernio-coral); color: white; }
-
-@font-face {
-  font-family: 'Zernio Geist';
-  src: url('/fonts/geist-latin.woff2') format('woff2');
-  font-weight: 100 900;
-  font-style: normal;
-  font-display: swap;
-}
-.zernio-sponsor { font-family: 'Zernio Geist', sans-serif; }

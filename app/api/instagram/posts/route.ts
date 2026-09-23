@@ -51,10 +51,7 @@ export async function GET(request: NextRequest) {
       success: true,
       data: posts,
       provider: account.provider,
-      limitations:
-        account.provider === "ZERNIO"
-          ? ["Zernio returns the 25 most recent Instagram posts."]
-          : [],
+      limitations: [],
     });
   } catch (err) {
     console.error("[Instagram Posts] Error:", err);

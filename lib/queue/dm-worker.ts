@@ -1,4 +1,3 @@
-import { createHash } from "node:crypto";
 import { UnrecoverableError, Worker, type Job } from "bullmq";
 import {
   getDMQueue,
@@ -45,12 +44,22 @@ import {
 } from "@/lib/tracking/message";
 import { TRACKED_LINK_ORDER } from "@/lib/tracking/link-order";
 
-import {
-  ZernioApiError,
-  ZernioDeliveryUnconfirmedError,
-} from "@/lib/zernio/client";
-
 const BACKOFF_DELAYS = [5 * 60 * 1000, 15 * 60 * 1000, 45 * 60 * 1000];
+
+// A send may have succeeded upstream before a network/5xx failure reached us.
+// Treat the outcome as ambiguous rather than silently resending or silently
+// dropping it — callers surface this so the delivery can be checked manually.
+class DeliveryUnconfirmedError extends MetaApiError {
+  constructor() {
+    super(
+      502,
+      undefined,
+      undefined,
+      "Message delivery is unconfirmed. Inspect the Instagram inbox before retrying."
+    );
+    this.name = "DeliveryUnconfirmedError";
+  }
+}
 
 function formatError(error: unknown): string {
   if (error instanceof MetaApiError) {
@@ -76,8 +85,7 @@ const NON_TEMPLATE_REJECTIONS = [
 function isTemplateRejection(error: unknown): boolean {
   if (
     error instanceof TokenExpiredError ||
-    error instanceof RateLimitError ||
-    error instanceof ZernioApiError
+    error instanceof RateLimitError
   ) {
     return false;
   }
@@ -329,10 +337,7 @@ async function processComment(job: Job<ProcessCommentJob>): Promise<void> {
 
     let accessToken: InstagramContext;
     try {
-      accessToken = await createInstagramContext(
-        automation.instagramAccount,
-        `${job.id}:${automation.id}`
-      );
+      accessToken = await createInstagramContext(automation.instagramAccount);
     } catch {
       await prisma.dmLog.upsert({
         where: {
@@ -440,7 +445,7 @@ async function processComment(job: Job<ProcessCommentJob>): Promise<void> {
                 commentId,
               },
             },
-            data: { publicReplyError: formatError(error), publicReplyDeliveryUnconfirmed: error instanceof ZernioDeliveryUnconfirmedError },
+            data: { publicReplyError: formatError(error), publicReplyDeliveryUnconfirmed: error instanceof DeliveryUnconfirmedError },
           })
           .catch(() => {});
       }
@@ -516,7 +521,7 @@ async function processComment(job: Job<ProcessCommentJob>): Promise<void> {
           status: "FAILED",
           attempts: job.attemptsMade + 1,
           errorMessage: formatError(error),
-          dmDeliveryUnconfirmed: error instanceof ZernioDeliveryUnconfirmedError,
+          dmDeliveryUnconfirmed: error instanceof DeliveryUnconfirmedError,
         },
       });
       throw error;
@@ -594,10 +599,7 @@ async function processComment(job: Job<ProcessCommentJob>): Promise<void> {
         context: accessToken,
         recipientId: commenterId,
       });
-      sendFollowPrompt =
-        accessToken.provider === "ZERNIO"
-          ? alreadyFollows === false
-          : alreadyFollows !== true;
+      sendFollowPrompt = alreadyFollows !== true;
     }
 
     try {
@@ -737,7 +739,7 @@ async function processComment(job: Job<ProcessCommentJob>): Promise<void> {
           status: "FAILED",
           attempts: job.attemptsMade + 1,
           errorMessage: formatError(error),
-          dmDeliveryUnconfirmed: error instanceof ZernioDeliveryUnconfirmedError,
+          dmDeliveryUnconfirmed: error instanceof DeliveryUnconfirmedError,
         },
       });
       throw error;
@@ -775,16 +777,15 @@ async function sendPostbackOnce({
     // A durable claim survives queue eviction, concurrent redelivery, and a
     // process crash during delivery. Only confirmed rejections permit retry.
     if (
-      (error instanceof ZernioApiError && error.code < 500) ||
       error instanceof RateLimitError ||
       error instanceof TokenExpiredError
     ) {
       await prisma.postbackDelivery.delete({ where: { id: operationId } });
       throw error;
     }
-    throw error instanceof ZernioDeliveryUnconfirmedError
+    throw error instanceof DeliveryUnconfirmedError
       ? error
-      : new ZernioDeliveryUnconfirmedError();
+      : new DeliveryUnconfirmedError();
   }
 }
 
@@ -851,27 +852,12 @@ async function processPostback(job: Job<ProcessPostbackJob>): Promise<void> {
 
   let accessToken: InstagramContext;
   try {
-    accessToken = await createInstagramContext(
-      automation.instagramAccount,
-      `${job.id}:${automation.id}`,
-    );
+    accessToken = await createInstagramContext(automation.instagramAccount);
   } catch {
     return;
   }
 
-  const operationId =
-    accessToken.provider === "ZERNIO"
-      ? createHash("sha256")
-          .update(
-            JSON.stringify([
-              automation.instagramAccountId,
-              automation.id,
-              userId,
-              job.data.mid ?? job.id ?? payload,
-            ]),
-          )
-          .digest("hex")
-      : null;
+  const operationId = null;
 
   // Follow-gate: before revealing the link, verify the user follows. On a
   // `followcheck:` tap a non-follower gets the prompt again (no quota spent);
@@ -1015,7 +1001,7 @@ async function processPostback(job: Job<ProcessPostbackJob>): Promise<void> {
     // failure the user can act on — so don't log it as FAILED and don't retry
     // it against a window that cannot reopen on its own. It still delivers in
     // the case that does work: the user replied by typing instead of tapping.
-    if (fallback && !(error instanceof ZernioDeliveryUnconfirmedError)) {
+    if (fallback && !(error instanceof DeliveryUnconfirmedError)) {
       console.log(
         "[DM Worker] Read fallback not delivered (messaging window closed):",
         formatError(error),
@@ -1040,12 +1026,12 @@ async function processPostback(job: Job<ProcessPostbackJob>): Promise<void> {
         commentId: dedupeId,
         status: "FAILED",
         errorMessage: formatError(error),
-        dmDeliveryUnconfirmed: error instanceof ZernioDeliveryUnconfirmedError,
+        dmDeliveryUnconfirmed: error instanceof DeliveryUnconfirmedError,
       },
       update: {
         status: "FAILED",
         errorMessage: formatError(error),
-        dmDeliveryUnconfirmed: error instanceof ZernioDeliveryUnconfirmedError,
+        dmDeliveryUnconfirmed: error instanceof DeliveryUnconfirmedError,
       },
     });
     throw error;
@@ -1077,10 +1063,7 @@ async function processFollowUp(job: Job<ProcessFollowUpJob>): Promise<void> {
 
   let accessToken: InstagramContext;
   try {
-    accessToken = await createInstagramContext(
-      automation.instagramAccount,
-      `${job.id}:${automation.id}`
-    );
+    accessToken = await createInstagramContext(automation.instagramAccount);
   } catch {
     return;
   }
@@ -1197,10 +1180,7 @@ async function processMessage(job: Job<ProcessMessageJob>): Promise<void> {
 
     let accessToken: InstagramContext;
     try {
-      accessToken = await createInstagramContext(
-        automation.instagramAccount,
-        `${job.id}:${automation.id}`
-      );
+      accessToken = await createInstagramContext(automation.instagramAccount);
     } catch {
       await prisma.dmLog.upsert({
         where: {
@@ -1243,10 +1223,7 @@ async function processMessage(job: Job<ProcessMessageJob>): Promise<void> {
         context: accessToken,
         recipientId: senderId,
       });
-      sendFollowPrompt =
-        accessToken.provider === "ZERNIO"
-          ? follows === false
-          : follows !== true;
+      sendFollowPrompt = follows !== true;
     }
 
     const usage = await reserveWorkspaceDMSend(automation.workspaceId);
@@ -1354,13 +1331,13 @@ async function processMessage(job: Job<ProcessMessageJob>): Promise<void> {
           status: "FAILED",
           attempts: job.attemptsMade + 1,
           errorMessage: formatError(error),
-          dmDeliveryUnconfirmed: error instanceof ZernioDeliveryUnconfirmedError,
+          dmDeliveryUnconfirmed: error instanceof DeliveryUnconfirmedError,
         },
         update: {
           status: "FAILED",
           attempts: job.attemptsMade + 1,
           errorMessage: formatError(error),
-          dmDeliveryUnconfirmed: error instanceof ZernioDeliveryUnconfirmedError,
+          dmDeliveryUnconfirmed: error instanceof DeliveryUnconfirmedError,
         },
       });
       throw error;
@@ -1385,7 +1362,7 @@ async function processJob(job: Job<DmQueueJob>): Promise<void> {
   try {
     await dispatchJob(job);
   } catch (error) {
-    if (error instanceof ZernioDeliveryUnconfirmedError)
+    if (error instanceof DeliveryUnconfirmedError)
       throw new UnrecoverableError(error.message);
     throw error;
   }

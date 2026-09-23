@@ -1,10 +1,12 @@
 .or-landing {
-  --or-paper: #faf9f6;
-  --or-ink: #22221f;
+  /* TodoTrail brand tokens (todotrail.com.ar). */
+  --or-paper: #ffffff;
+  --or-ink: #0e0e0e;
   --or-muted: #62625e;
   --or-line: #deded7;
-  --or-orange: #c4490c;
+  --or-orange: #ff8627;
   --or-peach: #f6e6d8;
+  --or-success: #66b051;
   background: var(--or-paper);
   color: var(--or-ink);
   font-size: 16px;
@@ -182,29 +184,6 @@
   color: var(--or-muted);
   margin-top: 16px !important;
 }
-.or-sponsor-credit {
-  display: flex;
-  gap: 14px;
-  flex-wrap: wrap;
-  align-items: center;
-  width: fit-content;
-  font-size: 12px;
-  color: var(--or-muted);
-}
-.or-sponsor-credit img {
-  width: 76px;
-  height: 24px;
-  object-fit: contain;
-  margin: 12px;
-}
-.or-hero .or-sponsor-credit {
-  margin-top: 32px;
-  padding-top: 12px;
-  border-top: 1px solid var(--or-line);
-}
-.or-sponsor-disclosure {
-  font-size: 11px;
-}
 .or-preview {
   border: 1px solid var(--or-line);
   border-radius: 16px;
@@ -258,7 +237,7 @@
 }
 .or-active {
   margin-left: auto;
-  color: #166534;
+  color: var(--or-success);
   font-size: 11px;
   background: #f0fdf4;
   padding: 3px 9px;
@@ -385,7 +364,7 @@
   color: var(--or-muted);
 }
 .or-delivered > span {
-  color: #166534;
+  color: var(--or-success);
 }
 .or-preview figcaption {
   padding: 12px 20px;
@@ -536,16 +515,13 @@
 }
 .or-provider-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr;
   gap: 32px;
   margin-top: 32px;
 }
 .or-provider-grid article {
   padding-top: 24px;
   border-top: 2px solid var(--or-line);
-}
-.or-provider-grid .or-provider-zernio {
-  border-color: var(--color-zernio-coral);
 }
 .or-provider-title > span {
   display: block;
@@ -566,10 +542,6 @@
 .or-provider-grid li {
   padding-left: 4px;
   margin-block: 8px;
-}
-.or-provider-zernio .or-text-link {
-  color: var(--color-zernio-charcoal);
-  text-decoration: underline;
 }
 .or-provider-guide {
   display: block;
@@ -671,15 +643,6 @@
   .or-hero h1 {
     font-size: 48px;
   }
-  .or-sponsor-credit {
-    gap: 6px;
-  }
-  .or-sponsor-disclosure {
-    flex-basis: 100%;
-  }
-  .or-footer-bottom .or-sponsor-disclosure {
-    flex-basis: auto;
-  }
 }
 @media (max-width: 760px) {
   .or-container {
@@ -714,12 +677,6 @@
   .or-lead {
     font-size: 16px;
     max-width: 520px;
-  }
-  .or-hero .or-sponsor-credit {
-    margin-top: 24px;
-  }
-  .or-sponsor-disclosure {
-    flex-basis: auto;
   }
   .or-principles {
     display: grid;
@@ -794,9 +751,6 @@
 @media (max-width: 380px) {
   .or-container {
     width: calc(100% - 32px);
-  }
-  .or-sponsor-disclosure {
-    flex-basis: 100%;
   }
   .or-preview-body {
     padding: 16px;
