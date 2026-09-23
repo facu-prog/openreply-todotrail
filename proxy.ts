@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 
-const PROTECTED_PREFIXES = ["/dashboard", "/automations", "/logs", "/settings"];
+const PROTECTED_PREFIXES = ["/dashboard", "/automations", "/logs", "/settings", "/crm"];
 
 function hasSessionCookie(request: NextRequest): boolean {
   return (
@@ -29,6 +29,19 @@ export function proxy(request: NextRequest) {
     return NextResponse.redirect(new URL("/dashboard", request.url));
   }
 
+  // Both respondetuti.todotrail.com.ar and crm.todotrail.com.ar point at this
+  // same app and share the same login/workspaces — the CRM is just additional
+  // routes, not a separate deployment. The only hostname-specific behavior is
+  // which screen "/" lands on.
+  if (pathname === "/") {
+    const host = request.headers.get("host") ?? "";
+    if (host.startsWith("crm.")) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/crm/contacts";
+      return NextResponse.redirect(url);
+    }
+  }
+
   return NextResponse.next();
 }
 
@@ -38,6 +51,8 @@ export const config = {
     "/automations/:path*",
     "/logs/:path*",
     "/settings/:path*",
+    "/crm/:path*",
     "/login",
+    "/",
   ],
 };

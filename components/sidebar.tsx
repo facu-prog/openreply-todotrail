@@ -21,6 +21,17 @@ const navItems = [
   { label: "Diagnostics", href: "/diagnostics" },
 ] as const;
 
+// CRM section is additive, alongside the campaign screens above — not a
+// replacement. Labels here are plain display strings, not translation keys:
+// the CRM UI ships in English only for this pass (see docs/crm.md), so these
+// deliberately bypass t() rather than crash on a missing zh-TW/es entry.
+const crmNavItems = [
+  { label: "Contacts", href: "/crm/contacts" },
+  { label: "CRM Inbox", href: "/crm/inbox" },
+  { label: "Ventas", href: "/crm/ventas" },
+  { label: "Postventa", href: "/crm/postventa" },
+] as const;
+
 interface SidebarProps {
   isOpen: boolean;
   onClose: () => void;
@@ -84,6 +95,32 @@ export default function Sidebar({
                 `}
               >
                 {t(item.label)}
+              </Link>
+            );
+          })}
+
+          <p className="mt-4 mb-1 px-3 text-xs font-semibold uppercase tracking-wide text-zinc-500">
+            CRM
+          </p>
+          {crmNavItems.map((item) => {
+            const isActive =
+              pathname === item.href || pathname.startsWith(item.href + "/");
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                onClick={onClose}
+                aria-current={isActive ? "page" : undefined}
+                className={`
+                  block px-3 py-2.5 rounded text-sm
+                  ${
+                    isActive
+                      ? "bg-surface-hover text-foreground font-medium"
+                      : "text-muted hover:text-foreground hover:bg-surface-hover"
+                  }
+                `}
+              >
+                {item.label}
               </Link>
             );
           })}

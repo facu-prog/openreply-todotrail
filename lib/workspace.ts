@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db/client";
 import type { Workspace, WorkspaceRole } from "@/app/generated/prisma/client";
+import { ensureCrmDefaults } from "@/lib/crm/defaults";
 
 function normalizeInviteEmail(email: string) {
   return email.trim().toLowerCase();
@@ -81,7 +82,7 @@ export async function ensureWorkspaceForUser(
 
   const workspaceName = email ? `${email.split("@")[0]}'s workspace` : "My workspace";
 
-  return prisma.workspace.create({
+  const workspace = await prisma.workspace.create({
     data: {
       name: workspaceName,
       ownerId: userId,
@@ -93,6 +94,10 @@ export async function ensureWorkspaceForUser(
       },
     },
   });
+
+  await ensureCrmDefaults(workspace.id);
+
+  return workspace;
 }
 
 export async function getPrimaryWorkspace(userId: string): Promise<Workspace | null> {
