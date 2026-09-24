@@ -1,10 +1,12 @@
 import { I18nProvider } from "@/lib/i18n/provider";
 import { getI18n } from "@/lib/i18n/server";
 import { redirect } from "next/navigation";
+import { headers } from "next/headers";
 import DashboardShell from "@/components/dashboard-shell";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db/client";
 import { ensureWorkspaceForUser } from "@/lib/workspace";
+import { resolveSiteMode } from "@/lib/site-mode";
 
 export async function generateMetadata() {
   const { t } = await getI18n();
@@ -18,6 +20,8 @@ export default async function DashboardLayout({
 }) {
   const { locale } = await getI18n();
   const session = await auth();
+  const headersList = await headers();
+  const siteMode = resolveSiteMode(headersList.get("host"));
 
   if (!session?.user?.id) {
     redirect("/login");
@@ -39,6 +43,7 @@ export default async function DashboardLayout({
         workspaceName={workspace.name}
         instagramUsername={accounts[0]?.username ?? null}
         instagramAccountCount={accounts.length}
+        siteMode={siteMode}
       >
         {children}
       </DashboardShell>

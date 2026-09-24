@@ -8,6 +8,7 @@
 
 import LanguageSwitcher from "@/components/language-switcher";
 import { useI18n } from "@/lib/i18n/provider";
+import type { SiteMode } from "@/lib/site-mode";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -36,15 +37,19 @@ interface SidebarProps {
   isOpen: boolean;
   onClose: () => void;
   workspaceName: string;
+  siteMode: SiteMode;
 }
 
 export default function Sidebar({
   isOpen,
   onClose,
   workspaceName,
+  siteMode,
 }: SidebarProps) {
   const { t } = useI18n();
   const pathname = usePathname();
+  const showRespondeTuti = siteMode !== "crm";
+  const showCrm = siteMode !== "respondetuti";
 
   return (
     <>
@@ -70,22 +75,26 @@ export default function Sidebar({
           className="px-6 py-5 border-b border-border"
           style={{ paddingTop: "calc(1.25rem + env(safe-area-inset-top))" }}
         >
-          <Link href="/dashboard" className="text-base font-semibold">
-            RespondeTuti
+          <Link
+            href={showRespondeTuti ? "/dashboard" : "/crm/contacts"}
+            className="text-base font-semibold"
+          >
+            {showRespondeTuti ? "RespondeTuti" : "TodoTrail CRM"}
           </Link>
         </div>
 
         <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
-          {navItems.map((item) => {
-            const isActive =
-              pathname === item.href || pathname.startsWith(item.href + "/");
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                onClick={onClose}
-                aria-current={isActive ? "page" : undefined}
-                className={`
+          {showRespondeTuti &&
+            navItems.map((item) => {
+              const isActive =
+                pathname === item.href || pathname.startsWith(item.href + "/");
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={onClose}
+                  aria-current={isActive ? "page" : undefined}
+                  className={`
                   block px-3 py-2.5 rounded text-sm
                   ${
                     isActive
@@ -93,25 +102,30 @@ export default function Sidebar({
                       : "text-muted hover:text-foreground hover:bg-surface-hover"
                   }
                 `}
-              >
-                {t(item.label)}
-              </Link>
-            );
-          })}
+                >
+                  {t(item.label)}
+                </Link>
+              );
+            })}
 
-          <p className="mt-4 mb-1 px-3 text-xs font-semibold uppercase tracking-wide text-zinc-500">
-            CRM
-          </p>
-          {crmNavItems.map((item) => {
-            const isActive =
-              pathname === item.href || pathname.startsWith(item.href + "/");
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                onClick={onClose}
-                aria-current={isActive ? "page" : undefined}
-                className={`
+          {showCrm && (
+            <>
+              {showRespondeTuti && (
+                <p className="mt-4 mb-1 px-3 text-xs font-semibold uppercase tracking-wide text-zinc-500">
+                  CRM
+                </p>
+              )}
+              {crmNavItems.map((item) => {
+                const isActive =
+                  pathname === item.href ||
+                  pathname.startsWith(item.href + "/");
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    onClick={onClose}
+                    aria-current={isActive ? "page" : undefined}
+                    className={`
                   block px-3 py-2.5 rounded text-sm
                   ${
                     isActive
@@ -119,11 +133,13 @@ export default function Sidebar({
                       : "text-muted hover:text-foreground hover:bg-surface-hover"
                   }
                 `}
-              >
-                {item.label}
-              </Link>
-            );
-          })}
+                  >
+                    {item.label}
+                  </Link>
+                );
+              })}
+            </>
+          )}
         </nav>
 
         <div className="px-5 py-4 border-t border-border">

@@ -3,12 +3,14 @@
 import { useState } from "react";
 import Sidebar from "@/components/sidebar";
 import TopBar from "@/components/top-bar";
+import type { SiteMode } from "@/lib/site-mode";
 
 interface DashboardShellProps {
   children: React.ReactNode;
   workspaceName: string;
   instagramUsername: string | null;
   instagramAccountCount: number;
+  siteMode: SiteMode;
 }
 
 export default function DashboardShell({
@@ -16,6 +18,7 @@ export default function DashboardShell({
   workspaceName,
   instagramUsername,
   instagramAccountCount,
+  siteMode,
 }: DashboardShellProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
@@ -27,6 +30,7 @@ export default function DashboardShell({
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
         workspaceName={workspaceName}
+        siteMode={siteMode}
       />
 
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
@@ -34,6 +38,7 @@ export default function DashboardShell({
           onMenuClick={() => setSidebarOpen(true)}
           instagramUsername={instagramUsername}
           instagramAccountCount={instagramAccountCount}
+          siteMode={siteMode}
         />
 
         {/* overflow-x-hidden: enabling vertical scrolling makes the browser

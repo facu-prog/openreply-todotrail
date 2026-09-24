@@ -8,6 +8,7 @@
 
 import type { StaticMessageKey } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n/provider";
+import type { SiteMode } from "@/lib/site-mode";
 import { usePathname } from "next/navigation";
 
 const pageTitles: Record<string, StaticMessageKey> = {
@@ -24,23 +25,39 @@ const pageTitles: Record<string, StaticMessageKey> = {
   "/diagnostics": "Diagnostics",
 };
 
+// CRM titles are plain strings, not translation keys — same reason as the
+// CRM sidebar labels in components/sidebar.tsx (English-only for this pass).
+const crmPageTitles: Record<string, string> = {
+  "/crm/contacts": "Contacts",
+  "/crm/inbox": "CRM Inbox",
+  "/crm/ventas": "Ventas",
+  "/crm/postventa": "Postventa",
+};
+
 interface TopBarProps {
   onMenuClick: () => void;
   instagramUsername: string | null;
   instagramAccountCount: number;
+  siteMode: SiteMode;
 }
 
 export default function TopBar({
   onMenuClick,
   instagramUsername,
   instagramAccountCount,
+  siteMode,
 }: TopBarProps) {
   const { t } = useI18n();
   const pathname = usePathname();
+  const crmTitle = crmPageTitles[pathname];
   const title: StaticMessageKey = pageTitles[pathname] ?? (
     pathname.endsWith("/edit") ? "Edit campaign"
       : pathname.startsWith("/campaigns/") ? "Campaign details" : "Dashboard"
   );
+  // siteMode "crm" hides the Instagram connect/account status entirely —
+  // that widget is RespondeTuti-specific and would be confusing on a domain
+  // that only shows CRM sections.
+  const showInstagramStatus = siteMode !== "crm";
 
   return (
     <header
@@ -61,25 +78,28 @@ export default function TopBar({
         >
           {t("Menu")}
         </button>
-        <h1 className="truncate text-base font-semibold sm:text-lg">{t(title)}</h1>
+        <h1 className="truncate text-base font-semibold sm:text-lg">
+          {crmTitle ?? t(title)}
+        </h1>
       </div>
 
-      {instagramAccountCount > 0 ? (
-        <p className="shrink-0 truncate text-sm text-muted">
-          {instagramAccountCount > 1
-            ? t("{count} accounts", { count: instagramAccountCount })
-            : `@${instagramUsername}`}
-        </p>
-      ) : (
-        <a
-          href="/api/instagram/connect"
-          className="shrink-0 whitespace-nowrap text-sm font-medium px-3 py-1.5 rounded bg-accent text-white hover:bg-accent-hover"
-        >
-          {/* Full label needs more room than a 360px header has to spare. */}
-          <span className="sm:hidden">{t("Connect")}</span>
-          <span className="hidden sm:inline">{t("Connect Instagram")}</span>
-        </a>
-      )}
+      {showInstagramStatus &&
+        (instagramAccountCount > 0 ? (
+          <p className="shrink-0 truncate text-sm text-muted">
+            {instagramAccountCount > 1
+              ? t("{count} accounts", { count: instagramAccountCount })
+              : `@${instagramUsername}`}
+          </p>
+        ) : (
+          <a
+            href="/api/instagram/connect"
+            className="shrink-0 whitespace-nowrap text-sm font-medium px-3 py-1.5 rounded bg-accent text-white hover:bg-accent-hover"
+          >
+            {/* Full label needs more room than a 360px header has to spare. */}
+            <span className="sm:hidden">{t("Connect")}</span>
+            <span className="hidden sm:inline">{t("Connect Instagram")}</span>
+          </a>
+        ))}
     </header>
   );
 }
