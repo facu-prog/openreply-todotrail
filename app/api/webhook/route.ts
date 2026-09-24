@@ -5,6 +5,7 @@ import {
   verifyWebhookSignature,
 } from "@/lib/meta/webhook";
 import { processInstagramWebhook } from "@/lib/queue/process-webhook";
+import { processFacebookPageWebhook } from "@/lib/queue/process-facebook-webhook";
 
 
 export async function GET(request: NextRequest) {
@@ -61,8 +62,19 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  const object =
+    typeof payload === "object" && payload && "object" in payload
+      ? String((payload as { object: unknown }).object)
+      : null;
+
   try {
-    await processInstagramWebhook({ payload: payload as Parameters<typeof parseCommentEvents>[0], provider: 'META' });
+    if (object === "page") {
+      await processFacebookPageWebhook({
+        payload: payload as Parameters<typeof processFacebookPageWebhook>[0]["payload"],
+      });
+    } else {
+      await processInstagramWebhook({ payload: payload as Parameters<typeof parseCommentEvents>[0], provider: 'META' });
+    }
     return NextResponse.json({ success: true });
   } catch {
     return NextResponse.json({ success: false, error: 'Webhook processing failed' }, { status: 500 });

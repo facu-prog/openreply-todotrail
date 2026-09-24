@@ -108,6 +108,7 @@ Copy `.env.example` to `.env` for local work, or set these in Vercel and Railway
 | `META_GRAPH_API_VERSION` | Graph API version, for example `v25.0`. |
 | `INSTAGRAM_APP_ID` | From the Meta app, see Step 6. |
 | `INSTAGRAM_APP_SECRET` | From the Meta app. |
+| `FACEBOOK_APP_ID` | From the Meta app's Basic Settings — needed only to connect a Facebook Page (Messenger + Page comments) from Settings. Not the same number as `INSTAGRAM_APP_ID`. |
 | `FACEBOOK_APP_SECRET` | From the Meta app. |
 | `WEBHOOK_VERIFY_TOKEN` | Any random string. You paste the same value into Meta's webhook config. |
 
@@ -132,23 +133,42 @@ Go to [developers.facebook.com/apps](https://developers.facebook.com/apps) and c
 - App type: Business.
 - Contact email: one you actually check.
 
-When it asks you to add a use case, filter to All, then choose Manage messaging and content on Instagram. Do not pick "Create and manage ads with Marketing API", and do not pick "Authenticate with Facebook Login". OpenReply uses Instagram Login. Picking the Facebook Login variant makes the OAuth flow fail later with a mismatched client error.
+When it asks you to add a use case, filter to All, then choose Manage messaging and content on Instagram. Do not pick "Create and manage ads with Marketing API". OpenReply's Instagram connection uses Instagram Login, not Facebook Login — picking the Facebook Login variant for Instagram makes that OAuth flow fail later with a mismatched client error.
 
 If you accidentally added the Marketing API use case, remove it. It has its own heavy review requirements and can block publishing.
 
-### Step 5: Collect the three secrets
+**If you also want to connect a Facebook Page** (Messenger DMs and Page-post comments, from Settings → Facebook Page Connection), separately add the **Facebook Login** product (App Dashboard → Add Product → Facebook Login → Set Up). Under its Settings, add your callback as a Valid OAuth Redirect URI:
 
-There are two app secrets and two app IDs, which is confusing. Here is what maps to what.
+```
+https://your-app.vercel.app/api/facebook/callback
+```
+
+This is unrelated to the Instagram Login warning above — Instagram Login and Facebook Login are two different products on the same app, and the Page connection genuinely needs Facebook Login.
+
+### Step 5: Collect the secrets
+
+There are three app secrets/IDs, which is confusing. Here is what maps to what.
 
 | Environment variable | Where it lives |
 | --- | --- |
 | `INSTAGRAM_APP_ID` | Instagram, API setup with Instagram login. A number like `2036...` |
 | `INSTAGRAM_APP_SECRET` | Same page, click Show |
+| `FACEBOOK_APP_ID` | App settings, Basic, App ID (only needed for the Facebook Page connection) |
 | `FACEBOOK_APP_SECRET` | App settings, Basic, App secret, click Show |
 
-The Instagram app ID is not the same number as the Facebook App ID shown on the Basic settings page. Use the one under the Instagram product.
+The Instagram app ID is not the same number as the Facebook App ID shown on the Basic settings page. Use the one under the Instagram product for `INSTAGRAM_APP_ID`, and the Basic Settings one for `FACEBOOK_APP_ID`.
 
 OpenReply verifies webhook signatures against both `FACEBOOK_APP_SECRET` and `INSTAGRAM_APP_SECRET`, so you do not have to guess which one Meta signs with. Set both.
+
+**Facebook Page permissions.** Connecting a Page requests `pages_show_list`, `pages_messaging`, `pages_read_engagement`, and `pages_manage_metadata`. Standard Access covers any Page that has a role on this app (the same account that owns the app, or a Page you've added as a tester/admin) — exactly like Instagram Login above, no App Review needed to connect your own Page. Advanced Access (letting a customer connect *their* Page) needs App Review and Business Verification, the same as the Instagram Advanced Access path described later in this guide.
+
+**Webhook subscription for the Page.** After a Page connects, OpenReply calls `POST /{page-id}/subscribed_apps` automatically to subscribe it to `messages`, `messaging_postbacks`, and `feed` — no manual step in the Meta dashboard for the Page itself. Meta does require the app's Webhooks product to have a `page` object subscription configured once, pointing at the same callback URL and verify token already used for the `instagram` object:
+
+```
+https://your-app.vercel.app/api/webhook
+```
+
+Subscribe the `page` object to `messages`, `messaging_postbacks`, and `feed` there, the same way Step 8 below configures the `instagram` object.
 
 ### Step 6: Add your Instagram account as a tester, and accept the invite
 

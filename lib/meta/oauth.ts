@@ -32,26 +32,30 @@ function base64UrlDecode(value: string): string {
   return Buffer.from(value, "base64url").toString("utf8");
 }
 
-function signState(payload: string): string {
+function signPayload(payload: string): string {
   return createHmac("sha256", requireEnv("NEXTAUTH_SECRET"))
     .update(payload)
     .digest("base64url");
 }
 
-export function createOAuthState(workspaceId: string): string {
-  const payload = base64UrlEncode(
-    JSON.stringify({ workspaceId, ts: Date.now() } satisfies OAuthStatePayload)
-  );
-  return `${payload}.${signState(payload)}`;
+/**
+ * Sign an arbitrary JSON-serializable payload into a compact, tamper-evident
+ * token (`base64url(payload).signature`), same scheme as the OAuth state
+ * below. Used wherever short-lived state needs to round-trip through the
+ * client without a server-side session — e.g. the Facebook Page picker.
+ */
+export function signJson(payload: unknown): string {
+  const encoded = base64UrlEncode(JSON.stringify(payload));
+  return `${encoded}.${signPayload(encoded)}`;
 }
 
-export function verifyOAuthState(state: string | null): OAuthStatePayload | null {
-  if (!state) return null;
+export function verifySignedJson<T>(token: string | null | undefined): T | null {
+  if (!token) return null;
 
-  const [payload, signature] = state.split(".");
+  const [payload, signature] = token.split(".");
   if (!payload || !signature) return null;
 
-  const expected = signState(payload);
+  const expected = signPayload(payload);
   const signatureBuffer = Buffer.from(signature);
   const expectedBuffer = Buffer.from(expected);
 
@@ -63,15 +67,22 @@ export function verifyOAuthState(state: string | null): OAuthStatePayload | null
   }
 
   try {
-    const parsed = JSON.parse(base64UrlDecode(payload)) as OAuthStatePayload;
-    if (!parsed.workspaceId || Date.now() - parsed.ts > STATE_MAX_AGE_MS) {
-      return null;
-    }
-
-    return parsed;
+    return JSON.parse(base64UrlDecode(payload)) as T;
   } catch {
     return null;
   }
+}
+
+export function createOAuthState(workspaceId: string): string {
+  return signJson({ workspaceId, ts: Date.now() } satisfies OAuthStatePayload);
+}
+
+export function verifyOAuthState(state: string | null): OAuthStatePayload | null {
+  const parsed = verifySignedJson<OAuthStatePayload>(state);
+  if (!parsed?.workspaceId || Date.now() - parsed.ts > STATE_MAX_AGE_MS) {
+    return null;
+  }
+  return parsed;
 }
 
 export function getAuthorizationUrl(redirectUri: string, state: string): string {

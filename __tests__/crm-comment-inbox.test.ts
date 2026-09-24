@@ -21,7 +21,7 @@ vi.mock("@/app/generated/prisma/client", () => ({
   },
 }));
 
-import { recordInstagramComment } from "../lib/crm/comment-inbox";
+import { recordFacebookComment, recordFacebookMessage, recordInstagramComment } from "../lib/crm/comment-inbox";
 
 const occurredAt = new Date("2026-09-01T12:00:00Z");
 
@@ -158,5 +158,66 @@ describe("recordInstagramComment", () => {
     });
 
     expect(mockPrisma.conversation.update).not.toHaveBeenCalled();
+  });
+});
+
+describe("Facebook (matched by facebookPsid, channel FACEBOOK)", () => {
+  it("creates a contact matched on (workspaceId, facebookPsid) for a Messenger message", async () => {
+    mockPrisma.contact.findUnique.mockResolvedValue(null);
+    mockPrisma.contact.create.mockResolvedValue({ id: "contact_fb_1" });
+
+    await recordFacebookMessage({
+      workspaceId: "workspace_1",
+      senderId: "psid_1",
+      messageId: "mid_1",
+      messageText: "Hola, tienen talle 42?",
+      occurredAt,
+    });
+
+    expect(mockPrisma.contact.findUnique).toHaveBeenCalledWith({
+      where: { workspaceId_facebookPsid: { workspaceId: "workspace_1", facebookPsid: "psid_1" } },
+    });
+    expect(mockPrisma.contact.create).toHaveBeenCalledWith({
+      data: {
+        workspaceId: "workspace_1",
+        facebookPsid: "psid_1",
+        name: null,
+        originChannel: "FACEBOOK",
+      },
+    });
+    expect(mockPrisma.conversation.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { contactId_channel: { contactId: "contact_fb_1", channel: "FACEBOOK" } },
+      })
+    );
+    expect(mockPrisma.message.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { conversationId_externalId: { conversationId: "conversation_1", externalId: "mid_1" } },
+      })
+    );
+  });
+
+  it("puts a Page-post comment from the same person into the same facebook conversation as their DMs", async () => {
+    mockPrisma.contact.findUnique.mockResolvedValue({ id: "contact_fb_1", name: null });
+    mockPrisma.contact.update.mockResolvedValue({ id: "contact_fb_1", name: "Maya" });
+
+    await recordFacebookComment({
+      workspaceId: "workspace_1",
+      commentId: "comment_1",
+      commentText: "Interesado!",
+      commenterId: "psid_1",
+      commenterName: "Maya",
+      occurredAt,
+    });
+
+    expect(mockPrisma.contact.update).toHaveBeenCalledWith({
+      where: { id: "contact_fb_1" },
+      data: { name: "Maya" },
+    });
+    expect(mockPrisma.conversation.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { contactId_channel: { contactId: "contact_fb_1", channel: "FACEBOOK" } },
+      })
+    );
   });
 });

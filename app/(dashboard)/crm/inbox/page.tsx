@@ -32,7 +32,8 @@ const CHANNEL_TABS: ChannelTab[] = [
     key: "facebook",
     label: "Facebook",
     channel: "FACEBOOK",
-    emptyHint: "Connect a Facebook Page to start receiving messages here.",
+    emptyHint:
+      "Messenger DMs and Page-post comments show up here once a Facebook Page is connected in Settings — new activity populates automatically.",
   },
   {
     key: "whatsapp",

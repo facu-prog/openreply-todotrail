@@ -2,9 +2,11 @@
 
 import LanguageSwitcher from "@/components/language-switcher";
 import { useI18n } from "@/lib/i18n/provider";
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useState } from "react";
 import type { AccountOption } from "@/components/account-select";
 import { InstagramConnectNotice } from "@/components/instagram-connect-notice";
+import { FacebookConnectNotice } from "@/components/facebook-connect-notice";
+import { FacebookPagePicker } from "@/components/facebook-page-picker";
 
 interface SettingsData {
   workspace: {
@@ -47,6 +49,14 @@ interface WorkspaceMembersData {
   }>;
 }
 
+interface FacebookPageData {
+  id: string;
+  pageId: string;
+  name: string;
+  webhookSubscribed: boolean;
+  connectedAt: string;
+}
+
 export default function SettingsPage() {
   const { t, label, locale } = useI18n();
   const [data, setData] = useState<SettingsData | null>(null);
@@ -58,6 +68,32 @@ export default function SettingsPage() {
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState<"ADMIN" | "MEMBER">("MEMBER");
   const [memberError, setMemberError] = useState<string | null>(null);
+  const [facebookPages, setFacebookPages] = useState<FacebookPageData[]>([]);
+
+  const loadFacebookPages = useCallback(() => {
+    fetch("/api/facebook/pages")
+      .then((res) => res.json())
+      .then((payload) => payload.success && setFacebookPages(payload.data.pages))
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    loadFacebookPages();
+  }, [loadFacebookPages]);
+
+  async function disconnectFacebookPage(facebookPageId: string) {
+    if (!confirm("Disconnect this Facebook Page? New Messenger messages and comments will stop appearing in the CRM inbox.")) {
+      return;
+    }
+    setBusy(`disconnect-fb:${facebookPageId}`);
+    await fetch("/api/facebook/disconnect", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ facebookPageId }),
+    });
+    setBusy(null);
+    loadFacebookPages();
+  }
 
   useEffect(() => {
     Promise.all([
@@ -137,6 +173,12 @@ export default function SettingsPage() {
           page fails the production build without one. */}
       <Suspense fallback={null}>
         <InstagramConnectNotice />
+      </Suspense>
+      <Suspense fallback={null}>
+        <FacebookConnectNotice />
+      </Suspense>
+      <Suspense fallback={null}>
+        <FacebookPagePicker onConnected={() => { window.location.href = "/settings?facebook=connected"; }} />
       </Suspense>
 
       <section className="panel rounded p-4 sm:p-6 space-y-3">
@@ -222,6 +264,63 @@ export default function SettingsPage() {
             className="px-4 py-2 rounded text-sm font-medium transition-colors bg-accent text-white hover:bg-accent-hover"
           >
             {t("Connect using your own Meta app")}
+          </a>
+        </div>
+      </section>
+
+      <section className="panel rounded p-4 sm:p-6">
+        <h2 className="text-base font-semibold mb-6">Facebook Page Connection</h2>
+
+        <div className="space-y-4">
+          <div className="flex items-center justify-between gap-3 py-3 border-b border-border">
+            <div>
+              <p className="text-sm font-medium text-foreground">Status</p>
+              <p className="text-xs text-muted mt-0.5">
+                Messenger conversations and Page-post comments in the CRM inbox depend on this connection.
+              </p>
+            </div>
+            <span
+              className={`px-3 py-1.5 rounded-full text-xs font-medium ${
+                facebookPages.length > 0 ? "bg-success/10 text-success" : "bg-warning/10 text-warning"
+              }`}
+            >
+              {facebookPages.length > 0 ? "Connected" : "Not connected"}
+            </span>
+          </div>
+
+          <div className="space-y-3 py-3">
+            {facebookPages.length === 0 && (
+              <p className="text-sm text-muted">Connect the TodoTrail Facebook Page to populate the CRM inbox.</p>
+            )}
+            {facebookPages.map((page) => (
+              <div
+                key={page.id}
+                className="flex flex-col gap-3 rounded border border-border bg-surface/70 p-4 sm:flex-row sm:items-center sm:justify-between"
+              >
+                <div>
+                  <p className="text-sm font-semibold text-foreground">{page.name}</p>
+                  <p className="mt-1 text-xs text-muted">
+                    {page.webhookSubscribed ? "Webhook ready" : "Webhook pending"}
+                  </p>
+                </div>
+                <button
+                  onClick={() => disconnectFacebookPage(page.id)}
+                  disabled={busy === `disconnect-fb:${page.id}`}
+                  className="inline-flex items-center justify-center rounded border border-error/20 px-4 py-2 text-sm font-medium text-error transition-all hover:border-error/40 hover:bg-error/10 disabled:opacity-50"
+                >
+                  {busy === `disconnect-fb:${page.id}` ? "Disconnecting..." : "Disconnect"}
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="mt-6 pt-4 border-t border-border flex gap-3">
+          <a
+            href="/api/facebook/connect"
+            className="px-4 py-2 rounded text-sm font-medium transition-colors bg-accent text-white hover:bg-accent-hover"
+          >
+            Connect Facebook Page
           </a>
         </div>
       </section>
