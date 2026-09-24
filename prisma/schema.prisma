@@ -489,7 +489,9 @@ model Contact {
   tickets       Ticket[]
 
   @@index([workspaceId])
-  @@index([workspaceId, instagramUserId])
+  // Also the match key for unifying a contact seen again on Instagram (e.g.
+  // from a webhook comment event) instead of creating a duplicate person.
+  @@unique([workspaceId, instagramUserId])
   @@index([workspaceId, whatsappPhone])
   @@index([workspaceId, email])
   @@index([assignedUserId])
@@ -544,8 +546,10 @@ model Conversation {
   contact   Contact?  @relation(fields: [contactId], references: [id], onDelete: SetNull)
   messages  Message[]
 
+  // One conversation per contact per channel — new comments/messages from the
+  // same person append to it rather than forking a new thread every time.
+  @@unique([contactId, channel])
   @@index([workspaceId, channel])
-  @@index([contactId])
 }
 
 enum MessageDirection {
@@ -561,9 +565,13 @@ model Message {
   senderName     String?
   sentAt         DateTime         @default(now())
   createdAt      DateTime         @default(now())
+  // The provider's own id for this message (e.g. an Instagram comment id).
+  // Makes recording idempotent across webhook redelivery and backfill reruns.
+  externalId     String?
 
   conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
 
+  @@unique([conversationId, externalId])
   @@index([conversationId, sentAt])
 }
 

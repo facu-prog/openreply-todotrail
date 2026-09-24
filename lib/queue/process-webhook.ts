@@ -2,6 +2,7 @@ import { prisma } from '@/lib/db/client';
 import { getDMQueue, MESSAGE_JOB_NAME, POSTBACK_JOB_NAME } from '@/lib/queue/client';
 import { parseCommentEvents, parseMessageEvents, parsePostbackEvents, parseReadEvents } from '@/lib/meta/webhook';
 import { Prisma, type InstagramProvider } from '@/app/generated/prisma/client';
+import { recordInstagramComment } from '@/lib/crm/comment-inbox';
 
 const OPENING_DM_READ_FALLBACK_DELAY_MS = 5 * 60 * 1000;
 type InstagramPayload = Parameters<typeof parseCommentEvents>[0];
@@ -64,6 +65,32 @@ export async function processInstagramWebhook({ payload: incoming, provider, wor
           data: { workspaceId: account.workspaceId },
         });
       }
+
+      // Populate the CRM's unified inbox alongside the campaign flow above.
+      // Never let a CRM write failure take down comment-to-DM processing.
+      await recordInstagramComment({
+        workspaceId: account.workspaceId,
+        commentId: event.commentId,
+        commentText: event.commentText,
+        commenterId: event.commenterId,
+        commenterName: event.commenterName,
+        occurredAt: new Date(event.time * 1000),
+      }).catch((error) => {
+        prisma.operationalEvent
+          .create({
+            data: {
+              source: 'SYSTEM',
+              level: 'WARNING',
+              workspaceId: account.workspaceId,
+              message: 'Failed to record CRM comment conversation',
+              payload: {
+                commentId: event.commentId,
+                reason: error instanceof Error ? error.message : String(error),
+              },
+            },
+          })
+          .catch(() => {});
+      });
     }
 
     // Button taps from opening DMs → deliver the reveal message.

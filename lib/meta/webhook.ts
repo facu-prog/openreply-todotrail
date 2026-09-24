@@ -45,6 +45,8 @@ export interface WebhookCommentEvent {
    * matching has to consider it as well as mediaId.
    */
   originalMediaId?: string;
+  /** Unix seconds from the webhook entry. Used as the CRM message timestamp. */
+  time: number;
 }
 
 interface WebhookEntry {
@@ -154,6 +156,7 @@ export function parseCommentEvents(payload: WebhookPayload): WebhookCommentEvent
         commenterName: value.from?.username,
         mediaId,
         originalMediaId,
+        time: entry.time,
       });
     }
   }

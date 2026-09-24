@@ -25,7 +25,8 @@ const CHANNEL_TABS: ChannelTab[] = [
     key: "instagram_comment",
     label: "Instagram Comments",
     channel: "INSTAGRAM_COMMENT",
-    emptyHint: "Comment threads will show up here once comment-based conversations are wired into the CRM inbox.",
+    emptyHint:
+      "New comments show up here automatically. If you connected Instagram before this tab existed, use Backfill to pull in comment history already on file.",
   },
   {
     key: "facebook",
@@ -60,7 +61,7 @@ type ConversationSummary = {
   lastMessage: { body: string; direction: "IN" | "OUT" } | null;
 };
 
-function ChannelInbox({ tab }: { tab: ChannelTab }) {
+function ChannelInbox({ tab, refreshToken }: { tab: ChannelTab; refreshToken: number }) {
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [messages, setMessages] = useState<{ id: string; body: string; direction: string; sentAt: string }[]>([]);
@@ -76,7 +77,7 @@ function ChannelInbox({ tab }: { tab: ChannelTab }) {
         if (d.success) setConversations(d.data.conversations);
       })
       .finally(() => setLoading(false));
-  }, [tab.channel]);
+  }, [tab.channel, refreshToken]);
 
   useEffect(() => {
     if (!activeId) return;
@@ -147,10 +148,47 @@ function ChannelInbox({ tab }: { tab: ChannelTab }) {
 
 export default function CrmInboxPage() {
   const [activeTab, setActiveTab] = useState<"instagram_dm" | string>("instagram_dm");
+  const [refreshToken, setRefreshToken] = useState(0);
+  const [backfilling, setBackfilling] = useState(false);
+  const [backfillResult, setBackfillResult] = useState<string | null>(null);
+
+  async function runBackfill() {
+    setBackfilling(true);
+    setBackfillResult(null);
+    try {
+      const res = await fetch("/api/crm/inbox/backfill-instagram-comments", { method: "POST" });
+      const data = await res.json();
+      if (data.success) {
+        setBackfillResult(`Scanned ${data.data.scanned} webhook events, recorded ${data.data.recorded} comments.`);
+        setRefreshToken((n) => n + 1);
+      } else {
+        setBackfillResult(data.error ?? "Backfill failed.");
+      }
+    } catch {
+      setBackfillResult("Backfill failed.");
+    } finally {
+      setBackfilling(false);
+    }
+  }
 
   return (
     <div className="space-y-4">
-      <h1 className="text-lg font-semibold text-foreground">CRM Inbox</h1>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-lg font-semibold text-foreground">CRM Inbox</h1>
+        {activeTab === "instagram_comment" && (
+          <div className="flex items-center gap-2">
+            {backfillResult && <span className="text-xs text-muted">{backfillResult}</span>}
+            <button
+              type="button"
+              onClick={() => void runBackfill()}
+              disabled={backfilling}
+              className="rounded-lg border border-border px-3 py-1.5 text-xs text-muted hover:text-foreground disabled:opacity-50"
+            >
+              {backfilling ? "Backfilling…" : "Backfill from webhook history"}
+            </button>
+          </div>
+        )}
+      </div>
       <div className="flex flex-wrap gap-2 border-b border-border pb-2">
         <button
           type="button"
@@ -178,7 +216,10 @@ export default function CrmInboxPage() {
       {activeTab === "instagram_dm" ? (
         <InstagramInbox showHeading={false} />
       ) : (
-        <ChannelInbox tab={CHANNEL_TABS.find((t) => t.key === activeTab)!} />
+        <ChannelInbox
+          tab={CHANNEL_TABS.find((t) => t.key === activeTab)!}
+          refreshToken={refreshToken}
+        />
       )}
     </div>
   );
