@@ -20,6 +20,21 @@ const smtpServer = process.env.EMAIL_SERVER;
  */
 export const EMAIL_PROVIDER_ID = smtpServer ? "nodemailer" : "resend";
 
+// respondetuti.todotrail.com.ar and crm.todotrail.com.ar are the same app
+// (see lib/site-mode.ts) and are meant to share one login. By default Auth.js
+// scopes the session cookie to the exact host that set it, so a session
+// created on one subdomain is invisible on the other. Setting the cookie's
+// `domain` to the shared parent (".todotrail.com.ar") makes it visible on
+// every subdomain. This must NOT apply on the Railway fallback domain
+// (*.up.railway.app) — we don't own that domain, and browsers reject a
+// cookie `domain` that isn't a suffix of the current host anyway.
+const TODOTRAIL_COOKIE_DOMAIN = ".todotrail.com.ar";
+
+function sharedCookieDomain(request: Request | undefined): string | undefined {
+  const host = request?.headers.get("host") ?? "";
+  return host.endsWith("todotrail.com.ar") ? TODOTRAIL_COOKIE_DOMAIN : undefined;
+}
+
 export const authConfig = {
   adapter: PrismaAdapter(prisma as unknown as AdapterPrismaClient),
   providers: [
@@ -61,7 +76,29 @@ export const authConfig = {
   secret: process.env.NEXTAUTH_SECRET,
 } satisfies NextAuthConfig;
 
-export const { handlers, auth, signIn, signOut } = NextAuth(authConfig);
+export const { handlers, auth, signIn, signOut } = NextAuth((request) => {
+  const domain = sharedCookieDomain(request);
+  if (!domain) return authConfig;
+
+  // NEXTAUTH_URL always resolves to https in production, so this mirrors
+  // Auth.js's own useSecureCookies logic without importing its internals.
+  const secure = process.env.NODE_ENV === "production";
+  return {
+    ...authConfig,
+    cookies: {
+      sessionToken: {
+        name: `${secure ? "__Secure-" : ""}authjs.session-token`,
+        options: {
+          httpOnly: true,
+          sameSite: "lax",
+          path: "/",
+          secure,
+          domain,
+        },
+      },
+    },
+  };
+});
 
 export async function getCurrentUserId(): Promise<string | null> {
   const session = await auth();
