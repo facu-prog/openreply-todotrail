@@ -1,0 +1,12 @@
+[build]
+builder = "nixpacks"
+buildCommand = "npm ci && npm run build"
+
+[deploy]
+startCommand = "npm run worker"
+healthcheckPath = ""
+restartPolicyType = "on_failure"
+restartPolicyMaxRetries = 5
+
+[environments.production.deploy]
+startCommand = "npm run worker"
